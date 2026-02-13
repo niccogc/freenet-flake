@@ -6,8 +6,7 @@
 }:
 stdenv.mkDerivation rec {
   pname = "freenet-core";
-  version = "0.1.125";
-
+  version = "0.1.125"; # freenet-version
   src = fetchurl {
     url = "https://github.com/freenet/freenet-core/releases/download/v${version}/freenet-x86_64-unknown-linux-musl.tar.gz";
     hash = "sha256-1rX3rYNynfw1I5D+iHjPt4ZWrPC6GPOx93JRzKCXuJg=";

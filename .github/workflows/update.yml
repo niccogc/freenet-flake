@@ -29,7 +29,7 @@ jobs:
       - name: Update Version in Flake
         run: |
           echo "Updating Freenet to ${{ env.LATEST_VER }}"
-          sed -i "s/version = \".*\"; # freenet-version/version = \"${{ env.LATEST_VER }}\";
+          sed -i "s/version = \".*\"; # freenet-version/version = \"${{ env.LATEST_VER }}\"; # freenet-version/" nix/packages/freenet.nix
 
       - name: Auto-Fix Hashes
         run: |
