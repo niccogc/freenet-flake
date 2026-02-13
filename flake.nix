@@ -1,5 +1,5 @@
 {
-  description = "Freenet Core (Gen 2) - x86_64";
+  description = "Freenet Core - x86_64";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -14,7 +14,6 @@
       version = "0.1.125";
       src = pkgs.fetchurl {
         url = "https://github.com/freenet/freenet-core/releases/download/v${version}/freenet-x86_64-unknown-linux-musl.tar.gz";
-        # hash = pkgs.lib.fakeHash;
         hash = "sha256-1rX3rYNynfw1I5D+iHjPt4ZWrPC6GPOx93JRzKCXuJg=";
       };
       nativeBuildInputs = [pkgs.autoPatchelfHook];
@@ -25,7 +24,6 @@
   in {
     packages.${system}.default = freenet-pkg;
 
-    # This is the "Service" part
     nixosModules.default = {
       config,
       lib,
@@ -37,7 +35,7 @@
 
       config = lib.mkIf config.services.freenet-core.enable {
         systemd.user.services.freenet = {
-          description = "Freenet Core Node (Gen 2)";
+          description = "Freenet Core Node";
           after = ["network.target"];
           wantedBy = ["default.target"];
           serviceConfig = {
