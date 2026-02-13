@@ -28,18 +28,45 @@
       config,
       lib,
       ...
-    }: {
+    }: let
+      cfg = config.services.freenet-core;
+    in {
       options.services.freenet-core = {
         enable = lib.mkEnableOption "Freenet Core Node";
+
+        autostart = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Automatically start Freenet on login.";
+        };
+
+        telemetry = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Enable anonymous telemetry.";
+        };
       };
 
-      config = lib.mkIf config.services.freenet-core.enable {
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [freenet-pkg];
+
         systemd.user.services.freenet = {
           description = "Freenet Core Node";
           after = ["network.target"];
-          wantedBy = ["default.target"];
+          wantedBy =
+            if cfg.autostart
+            then ["default.target"]
+            else [];
+
           serviceConfig = {
             ExecStart = "${freenet-pkg}/bin/freenet network";
+            Environment = [
+              "FREENET_TELEMETRY_ENABLED=${
+                if cfg.telemetry
+                then "true"
+                else "false"
+              }"
+            ];
             Restart = "always";
             RestartSec = "10";
           };
