@@ -6,10 +6,10 @@
 }:
 stdenv.mkDerivation rec {
   pname = "freenet-core";
-  version = "0.1.128"; # freenet-version
+  version = "0.1.129"; # freenet-version
   src = fetchurl {
     url = "https://github.com/freenet/freenet-core/releases/download/v${version}/freenet-x86_64-unknown-linux-musl.tar.gz";
-    hash = "sha256-MiQtJalcEzHm80Yc+cSMerP05kOKix0aWY3wGYz/+HA=";
+    hash = "sha256-P94xn8USC/guRBhu+ZK3dDtyQ/gPkltMbufKHQW9zZ4=";
   };
 
   nativeBuildInputs = [autoPatchelfHook];
