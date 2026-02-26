@@ -40,6 +40,8 @@ in {
       description = "Node operation mode.";
     };
 
+    autostart = mkEnableOption "Autostart Freenet";
+
     settings = mkOption {
       type = types.attrsOf (types.oneOf [types.bool types.int types.str types.path (types.listOf types.str)]);
       default = {};
@@ -76,7 +78,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ cfg.package packages.fdev ];
+    home.packages = [cfg.package packages.fdev];
 
     systemd.user.services.freenet = {
       Unit = {
@@ -102,7 +104,7 @@ in {
       };
 
       Install = {
-        WantedBy = ["default.target"];
+        WantedBy = lib.optionals cfg.autostart ["default.target"];
       };
     };
   };
