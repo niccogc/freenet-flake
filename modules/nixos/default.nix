@@ -6,6 +6,7 @@
 }:
 with lib; let
   cfg = config.services.freenet;
+  packages = withSystem pkgs.stdenv.hostPlatform.system ({config, ...}: config.packages);
 
   # Convert attrset to CLI flags: { fooBar = "value"; } -> ["--foo-bar" "value"]
   toFlags = attrs:
@@ -28,7 +29,7 @@ in {
 
     package = mkOption {
       type = types.package;
-      default = withSystem pkgs.stdenv.hostPlatform.system ({config, ...}: config.packages.freenet);
+      default = packages.freenet;
       defaultText = literalExpression "pkgs.freenet";
       description = "The Freenet package to use.";
     };
@@ -116,6 +117,9 @@ in {
     };
 
     users.groups.${cfg.group} = {};
+
+    # Add freenet and fdev to system packages
+    environment.systemPackages = [ cfg.package packages.fdev ];
 
     systemd.services.freenet = {
       description = "Freenet Node";
