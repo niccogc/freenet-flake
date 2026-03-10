@@ -5,7 +5,7 @@
   ...
 }:
 with lib; let
-  cfg = config.services.freenet;
+  cfg = config.local.services.freenet;
   packages = withSystem pkgs.stdenv.hostPlatform.system ({config, ...}: config.packages);
 
   # Wrap packages with environment variables
@@ -39,7 +39,7 @@ with lib; let
       )
       attrs);
 in {
-  options.services.freenet = {
+  options.local.services.freenet = {
     enable = mkEnableOption "Freenet node";
 
     package = mkOption {
