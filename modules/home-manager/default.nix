@@ -8,6 +8,17 @@ with lib; let
   cfg = config.services.freenet;
   packages = withSystem pkgs.stdenv.hostPlatform.system ({config, ...}: config.packages);
 
+  # Wrap packages with environment variables
+  wrappedFreenet = pkgs.writeShellScriptBin "freenet" ''
+    exec env FREENET_DATA_DIR="${cfg.dataDir}" CONFIG_DIR="${cfg.dataDir}" DATA_DIR="${cfg.dataDir}" LOG_DIR="${cfg.dataDir}" \
+      ${packages.freenet}/bin/freenet "$@"
+  '';
+
+  wrappedFdev = pkgs.writeShellScriptBin "fdev" ''
+    exec env FREENET_DATA_DIR="${cfg.dataDir}" CONFIG_DIR="${cfg.dataDir}" DATA_DIR="${cfg.dataDir}" LOG_DIR="${cfg.dataDir}" \
+      ${packages.fdev}/bin/fdev "$@"
+  '';
+
   # Convert attrset to CLI flags: { fooBar = "value"; } -> ["--foo-bar" "value"]
   toFlags = attrs:
     flatten (mapAttrsToList (
@@ -96,7 +107,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    home.packages = [cfg.package packages.fdev];
+    home.packages = [wrappedFreenet wrappedFdev];
 
     systemd.user.services.freenet = {
       Unit = {
