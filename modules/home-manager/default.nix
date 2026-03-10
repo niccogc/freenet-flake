@@ -10,7 +10,6 @@ with lib; let
 
   # Wrap packages with environment variables
   wrappedFreenet = pkgs.writeShellScriptBin "freenet" ''
-    FREENET_DATA_DIR="${cfg.dataDir}" \
     CONFIG_DIR="${cfg.dataDir}" \
     DATA_DIR="${cfg.dataDir}" \
     LOG_DIR="${cfg.dataDir}" \
@@ -18,7 +17,6 @@ with lib; let
   '';
 
   wrappedFdev = pkgs.writeShellScriptBin "fdev" ''
-    FREENET_DATA_DIR="${cfg.dataDir}" \
     CONFIG_DIR="${cfg.dataDir}" \
     DATA_DIR="${cfg.dataDir}" \
     LOG_DIR="${cfg.dataDir}" \
@@ -61,9 +59,20 @@ in {
 
     dataDir = mkOption {
       type = types.str;
-      default = "${config.xdg.dataHome}/freenet";
-      defaultText = literalExpression ''"\${config.xdg.dataHome}/freenet"'';
-      description = "Directory for Freenet data, binaries, config, and logs.";
+      default = "${config.home.homeDirectory}/.local/share/freenet";
+      description = "Directory for Freenet data and binaries.";
+    };
+
+    logDir = mkOption {
+      type = types.str;
+      default = "${config.home.homeDirectory}/.local/state/logs/freenet";
+      description = "Directory for Freenet logs.";
+    };
+
+    configDir = mkOption {
+      type = types.str;
+      default = "${config.home.homeDirectory}/.config/freenet";
+      description = "Directory for Freenet configs.";
     };
 
     settings = mkOption {
@@ -131,12 +140,11 @@ in {
           ++ (toFlags cfg.settings)
           ++ cfg.extraArgs);
         Restart = "on-failure";
-        RestartSec = 10;
+        RestartSec = 30;
         Environment = mapAttrsToList (k: v: "${k}=${v}") ({
-            FREENET_DATA_DIR = cfg.dataDir;
-            CONFIG_DIR = cfg.dataDir;
+            CONFIG_DIR = cfg.configDir;
             DATA_DIR = cfg.dataDir;
-            LOG_DIR = cfg.dataDir;
+            LOG_DIR = cfg.logDir;
           }
           // cfg.environment);
       };
@@ -157,7 +165,7 @@ in {
         Type = "oneshot";
         ExecStart = "${packages.freenet-update}/bin/freenet-update";
         Environment = [
-          "FREENET_DATA_DIR=${cfg.dataDir}"
+          "DATA_DIR=${cfg.dataDir}"
           "FREENET_SERVICE_NAME=freenet.service"
         ];
       };

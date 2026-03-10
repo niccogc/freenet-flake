@@ -10,7 +10,6 @@ with lib; let
 
   # Wrap packages with environment variables
   wrappedFreenet = pkgs.writeShellScriptBin "freenet" ''
-    FREENET_DATA_DIR="${cfg.dataDir}" \
     CONFIG_DIR="${cfg.dataDir}" \
     DATA_DIR="${cfg.dataDir}" \
     LOG_DIR="${cfg.dataDir}" \
@@ -18,7 +17,6 @@ with lib; let
   '';
 
   wrappedFdev = pkgs.writeShellScriptBin "fdev" ''
-    FREENET_DATA_DIR="${cfg.dataDir}" \
     CONFIG_DIR="${cfg.dataDir}" \
     DATA_DIR="${cfg.dataDir}" \
     LOG_DIR="${cfg.dataDir}" \
@@ -70,11 +68,22 @@ in {
     };
 
     dataDir = mkOption {
-      type = types.path;
+      type = types.str;
       default = "/var/lib/freenet";
-      description = "Directory for Freenet data, binaries, config, and logs.";
+      description = "Directory for Freenet data and binaries.";
     };
 
+    logDir = mkOption {
+      type = types.str;
+      default = "/var/log/freenet";
+      description = "Directory for Freenet logs.";
+    };
+
+    configDir = mkOption {
+      type = types.str;
+      default = "/var/lib/freenet/config";
+      description = "Directory for Freenet configs.";
+    };
     settings = mkOption {
       type = types.attrsOf (types.oneOf [types.bool types.int types.str types.path (types.listOf types.str)]);
       default = {};
@@ -149,6 +158,12 @@ in {
     # Add wrapped freenet and fdev to system packages
     environment.systemPackages = [wrappedFreenet wrappedFdev];
 
+    systemd.tmpfiles.rules = [
+      "d '${cfg.dataDir}' 0750 ${cfg.user} ${cfg.group} - -"
+      "d '${cfg.logDir}' 0750 ${cfg.user} ${cfg.group} - -"
+      "d '${cfg.configDir}' 0750 ${cfg.user} ${cfg.group} - -"
+    ];
+
     systemd.services.freenet = {
       description = "Freenet Node";
       wantedBy = ["multi-user.target"];
@@ -158,10 +173,9 @@ in {
       environment =
         {
           HOME = cfg.dataDir;
-        FREENET_DATA_DIR = cfg.dataDir;
-          CONFIG_DIR = cfg.dataDir;
+          CONFIG_DIR = cfg.configDir;
           DATA_DIR = cfg.dataDir;
-        LOG_DIR = cfg.dataDir;
+          LOG_DIR = cfg.logDir;
         }
         // cfg.environment;
 
@@ -206,7 +220,7 @@ in {
 
       environment = {
         HOME = cfg.dataDir;
-        FREENET_DATA_DIR = cfg.dataDir;
+        DATA_DIR = cfg.dataDir;
         FREENET_SERVICE_NAME = "freenet.service";
       };
 
@@ -214,9 +228,9 @@ in {
         Type = "oneshot";
         User = cfg.user;
         Group = cfg.group;
-ExecStart = "${packages.freenet-update}/bin/freenet-update";
+        ExecStart = "${packages.freenet-update}/bin/freenet-update";
         ReadWritePaths = [cfg.dataDir];
-};
+      };
     };
 
     systemd.timers.freenet-update = mkIf cfg.autoUpdate.enable {

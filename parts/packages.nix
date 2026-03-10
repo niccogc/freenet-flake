@@ -1,15 +1,15 @@
 {
   perSystem = {pkgs, ...}: let
     # Simple wrapper: fetch binary if missing, then exec it
-    # Expects FREENET_DATA_DIR to be set by the module/environment
+    # Expects DATA_DIR to be set by the module/environment
     mkWrapper = name:
       pkgs.writeShellScriptBin name ''
         set -euo pipefail
 
-        : "''${FREENET_DATA_DIR:?FREENET_DATA_DIR must be set}"
-        BINARY_PATH="$FREENET_DATA_DIR/${name}"
-        VERSION_FILE="$FREENET_DATA_DIR/version"
-        mkdir -p "$FREENET_DATA_DIR"
+        : "''${DATA_DIR:?DATA_DIR must be set}"
+        BINARY_PATH="$DATA_DIR/${name}"
+        VERSION_FILE="$DATA_DIR/version"
+        mkdir -p "$DATA_DIR"
 
         ARCH=$(uname -m)
         case "$ARCH" in
@@ -62,16 +62,16 @@
       '';
 
     # Updater script: checks GitHub, updates if newer, restarts service
-    # Expects FREENET_DATA_DIR and FREENET_SERVICE_NAME to be set
+    # Expects DATA_DIR and FREENET_SERVICE_NAME to be set
     mkUpdater = name:
       pkgs.writeShellScriptBin "${name}-update" ''
         set -euo pipefail
 
-        : "''${FREENET_DATA_DIR:?FREENET_DATA_DIR must be set}"
+        : "''${DATA_DIR:?DATA_DIR must be set}"
         : "''${FREENET_SERVICE_NAME:?FREENET_SERVICE_NAME must be set}"
-        BINARY_PATH="$FREENET_DATA_DIR/${name}"
-        VERSION_FILE="$FREENET_DATA_DIR/version"
-        mkdir -p "$FREENET_DATA_DIR"
+        BINARY_PATH="$DATA_DIR/${name}"
+        VERSION_FILE="$DATA_DIR/version"
+        mkdir -p "$DATA_DIR"
 
         ARCH=$(uname -m)
         case "$ARCH" in
