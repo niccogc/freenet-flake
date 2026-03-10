@@ -1,12 +1,15 @@
 {
   perSystem = {pkgs, ...}: let
-    mkAutoupdater = name:
+    # Simple wrapper: fetch binary if missing, then exec it
+    # Expects FREENET_DATA_DIR to be set by the module/environment
+    mkWrapper = name:
       pkgs.writeShellScriptBin name ''
-        trap "exit" INT TERM
+        set -euo pipefail
 
-        STATE_DIR="''${FREENET_STATE_DIR:-$HOME/.local/state/${name}}"
-        BINARY_PATH="$STATE_DIR/${name}"
-        mkdir -p "$STATE_DIR"
+        : "''${FREENET_DATA_DIR:?FREENET_DATA_DIR must be set}"
+        BINARY_PATH="$FREENET_DATA_DIR/${name}"
+        VERSION_FILE="$FREENET_DATA_DIR/version"
+        mkdir -p "$FREENET_DATA_DIR"
 
         ARCH=$(uname -m)
         case "$ARCH" in
@@ -15,52 +18,136 @@
           *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
         esac
 
-        # Function to fetch the absolute latest from GitHub
-        fetch_latest() {
-            echo "--- Fetching latest ${name} ($TARGET) from GitHub ---"
-            ASSET_URL=$(${pkgs.curl}/bin/curl -s https://api.github.com/repos/freenet/freenet-core/releases/latest | \
-                        ${pkgs.jq}/bin/jq -r ".assets[] | select(.name | contains(\"${name}\") and contains(\"$TARGET\")) | .browser_download_url" | head -n 1)
+        fetch_version() {
+          local version="$1"
+          echo "--- Fetching ${name} $version ($TARGET) from GitHub ---"
 
-            if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
-                echo "Error: Asset not found."
-                return 1
-            fi
+          ASSET_URL=$(${pkgs.curl}/bin/curl -sf "https://api.github.com/repos/freenet/freenet-core/releases/tags/$version" | \
+                      ${pkgs.jq}/bin/jq -r ".assets[] | select(.name | contains(\"${name}\") and contains(\"$TARGET\")) | .browser_download_url" | head -n 1)
 
-            TARBALL_PATH=$(${pkgs.nix}/bin/nix-prefetch-url --print-path "$ASSET_URL" | tail -n 1)
-            TMP_DIR=$(mktemp -d)
-            ${pkgs.gnutar}/bin/tar -xzf "$TARBALL_PATH" -C "$TMP_DIR"
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "Error: Asset not found for version $version"
+            return 1
+          fi
 
-            EXTRACTED=$(find "$TMP_DIR" -type f \( -name "${name}" -o -name "freenet*" \) | head -n 1)
-            cp "$EXTRACTED" "$BINARY_PATH"
-            chmod +x "$BINARY_PATH"
+          TARBALL_PATH=$(${pkgs.nix}/bin/nix-prefetch-url --print-path "$ASSET_URL" 2>/dev/null | tail -n 1)
+          TMP_DIR=$(mktemp -d)
+          ${pkgs.gnutar}/bin/tar -xzf "$TARBALL_PATH" -C "$TMP_DIR"
+
+          EXTRACTED=$(find "$TMP_DIR" -type f \( -name "${name}" -o -name "freenet*" \) | head -n 1)
+          if [ -z "$EXTRACTED" ]; then
+            echo "Error: Could not find ${name} binary in archive"
             rm -rf "$TMP_DIR"
+            return 1
+          fi
+
+          cp "$EXTRACTED" "$BINARY_PATH"
+          chmod +x "$BINARY_PATH"
+          echo "$version" > "$VERSION_FILE"
+          rm -rf "$TMP_DIR"
+          echo "Installed version $version"
         }
 
-        # Initial check: if binary doesn't exist at all, fetch it
         if [ ! -f "$BINARY_PATH" ]; then
-            fetch_latest || exit 1
+          REMOTE_VERSION=$(${pkgs.curl}/bin/curl -sf https://api.github.com/repos/freenet/freenet-core/releases/latest | \
+                           ${pkgs.jq}/bin/jq -r '.tag_name // empty')
+          if [ -z "$REMOTE_VERSION" ]; then
+            echo "Error: Cannot fetch version info from GitHub"
+            exit 1
+          fi
+          fetch_version "$REMOTE_VERSION" || exit 1
         fi
 
-        while true; do
-            echo "--- Starting ${name} ---"
-            "$BINARY_PATH" "$@"
-            exit_code=$?
+        exec "$BINARY_PATH" "$@"
+      '';
 
-            if [ $exit_code -eq 42 ]; then
-                echo "Autoupdate triggered by exit code 42. Updating..."
-                fetch_latest
-                sleep 1
-            else
-                echo "Exited with code: $exit_code. Stopping."
-                break
-            fi
-        done
+    # Updater script: checks GitHub, updates if newer, restarts service
+    # Expects FREENET_DATA_DIR and FREENET_SERVICE_NAME to be set
+    mkUpdater = name:
+      pkgs.writeShellScriptBin "${name}-update" ''
+        set -euo pipefail
+
+        : "''${FREENET_DATA_DIR:?FREENET_DATA_DIR must be set}"
+        : "''${FREENET_SERVICE_NAME:?FREENET_SERVICE_NAME must be set}"
+        BINARY_PATH="$FREENET_DATA_DIR/${name}"
+        VERSION_FILE="$FREENET_DATA_DIR/version"
+        mkdir -p "$FREENET_DATA_DIR"
+
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  TARGET="x86_64-unknown-linux-musl" ;;
+          aarch64) TARGET="aarch64-unknown-linux-musl" ;;
+          *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        get_remote_version() {
+          ${pkgs.curl}/bin/curl -sf https://api.github.com/repos/freenet/freenet-core/releases/latest | \
+            ${pkgs.jq}/bin/jq -r '.tag_name // empty'
+        }
+
+        get_local_version() {
+          if [ -f "$VERSION_FILE" ]; then
+            cat "$VERSION_FILE"
+          fi
+        }
+
+        fetch_version() {
+          local version="$1"
+          echo "--- Fetching ${name} $version ($TARGET) from GitHub ---"
+
+          ASSET_URL=$(${pkgs.curl}/bin/curl -sf "https://api.github.com/repos/freenet/freenet-core/releases/tags/$version" | \
+                      ${pkgs.jq}/bin/jq -r ".assets[] | select(.name | contains(\"${name}\") and contains(\"$TARGET\")) | .browser_download_url" | head -n 1)
+
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "Error: Asset not found for version $version"
+            return 1
+          fi
+
+          TARBALL_PATH=$(${pkgs.nix}/bin/nix-prefetch-url --print-path "$ASSET_URL" 2>/dev/null | tail -n 1)
+          TMP_DIR=$(mktemp -d)
+          ${pkgs.gnutar}/bin/tar -xzf "$TARBALL_PATH" -C "$TMP_DIR"
+
+          EXTRACTED=$(find "$TMP_DIR" -type f \( -name "${name}" -o -name "freenet*" \) | head -n 1)
+          if [ -z "$EXTRACTED" ]; then
+            echo "Error: Could not find ${name} binary in archive"
+            rm -rf "$TMP_DIR"
+            return 1
+          fi
+
+          cp "$EXTRACTED" "$BINARY_PATH"
+          chmod +x "$BINARY_PATH"
+          echo "$version" > "$VERSION_FILE"
+          rm -rf "$TMP_DIR"
+          echo "Updated to version $version"
+        }
+
+        REMOTE_VERSION=$(get_remote_version)
+        if [ -z "$REMOTE_VERSION" ]; then
+          echo "Warning: Could not fetch remote version"
+          exit 0
+        fi
+
+        LOCAL_VERSION=$(get_local_version)
+
+        if [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ]; then
+          echo "Update available: $LOCAL_VERSION -> $REMOTE_VERSION"
+          fetch_version "$REMOTE_VERSION"
+          echo "Restarting $FREENET_SERVICE_NAME..."
+          ${pkgs.systemd}/bin/systemctl restart "$FREENET_SERVICE_NAME" 2>/dev/null || \
+            ${pkgs.systemd}/bin/systemctl --user restart "$FREENET_SERVICE_NAME" 2>/dev/null || \
+            echo "Note: Could not restart service. Manual restart may be needed."
+        else
+          echo "Already at latest version: $LOCAL_VERSION"
+        fi
       '';
   in {
     packages = {
-      freenet = mkAutoupdater "freenet";
-      fdev = mkAutoupdater "fdev";
-      default = mkAutoupdater "freenet";
+      freenet = mkWrapper "freenet";
+      fdev = mkWrapper "fdev";
+      default = mkWrapper "freenet";
+
+      freenet-update = mkUpdater "freenet";
+      fdev-update = mkUpdater "fdev";
     };
   };
 }

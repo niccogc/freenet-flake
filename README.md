@@ -32,6 +32,12 @@ Add to your `flake.nix` inputs:
     enable = true;
     mode = "network";  # or "local" for development
 
+    # Auto-update from GitHub releases
+    autoUpdate = {
+      enable = true;
+      interval = "hourly";  # or "*:0/5" for every 5 minutes
+    };
+
     # Freeform settings: camelCase → --kebab-case flags
     settings = {
       wsApiPort = 7509;
@@ -62,6 +68,13 @@ Add to your `flake.nix` inputs:
   services.freenet = {
     enable = true;
     mode = "network";
+    autostart = true;
+
+    # Auto-update from GitHub releases
+    autoUpdate = {
+      enable = true;
+      interval = "hourly";
+    };
 
     settings = {
       wsApiPort = 7509;
@@ -114,12 +127,14 @@ nix develop
 | `mode` | enum | `"network"` | `"network"` or `"local"` |
 | `user` | string | `"freenet"` | System user |
 | `group` | string | `"freenet"` | System group |
-| `dataDir` | path | `/var/lib/freenet` | State directory |
+| `dataDir` | path | `/var/lib/freenet` | Directory for data, binaries, config, and logs |
 | `settings` | attrs | `{}` | Freeform CLI flags |
 | `environment` | attrs | `{}` | Environment variables |
 | `extraArgs` | list | `[]` | Extra CLI arguments |
 | `openFirewall` | bool | `false` | Open firewall ports |
 | `firewallPort` | port | `31337` | Port to open |
+| `autoUpdate.enable` | bool | `false` | Enable automatic updates via systemd timer |
+| `autoUpdate.interval` | string | `"hourly"` | Systemd calendar expression for update frequency |
 
 ### Home Manager
 
@@ -128,9 +143,13 @@ nix develop
 | `enable` | bool | `false` | Enable Freenet user service |
 | `package` | package | auto | Freenet package to use |
 | `mode` | enum | `"network"` | `"network"` or `"local"` |
+| `autostart` | bool | `false` | Autostart with user session |
+| `dataDir` | string | `~/.local/share/freenet` | Directory for data, binaries, config, and logs |
 | `settings` | attrs | `{}` | Freeform CLI flags |
 | `environment` | attrs | `{}` | Environment variables |
 | `extraArgs` | list | `[]` | Extra CLI arguments |
+| `autoUpdate.enable` | bool | `false` | Enable automatic updates via systemd timer |
+| `autoUpdate.interval` | string | `"hourly"` | Systemd calendar expression for update frequency |
 
 ## License
 

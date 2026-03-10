@@ -55,7 +55,7 @@ in {
     dataDir = mkOption {
       type = types.path;
       default = "/var/lib/freenet";
-      description = "Directory for Freenet state.";
+      description = "Directory for Freenet data, binaries, config, and logs.";
     };
 
     settings = mkOption {
@@ -105,6 +105,17 @@ in {
       default = 31337;
       description = "Port to open in the firewall (if openFirewall is true).";
     };
+
+    autoUpdate = {
+      enable = mkEnableOption "automatic updates via systemd timer";
+
+      interval = mkOption {
+        type = types.str;
+        default = "hourly";
+        example = "*:0/5";
+        description = "Systemd calendar expression for update check frequency. Examples: 'hourly', 'daily', '*:0/5' (every 5 min).";
+      };
+    };
   };
 
   config = mkIf cfg.enable {
@@ -119,7 +130,7 @@ in {
     users.groups.${cfg.group} = {};
 
     # Add freenet and fdev to system packages
-    environment.systemPackages = [ cfg.package packages.fdev ];
+    environment.systemPackages = [cfg.package packages.fdev];
 
     systemd.services.freenet = {
       description = "Freenet Node";
@@ -130,7 +141,10 @@ in {
       environment =
         {
           HOME = cfg.dataDir;
-          FREENET_STATE_DIR = cfg.dataDir;
+        FREENET_DATA_DIR = cfg.dataDir;
+          CONFIG_DIR = cfg.dataDir;
+          DATA_DIR = cfg.dataDir;
+        LOG_DIR = cfg.dataDir;
         }
         // cfg.environment;
 
@@ -165,6 +179,37 @@ in {
         StateDirectory = "freenet";
         LogsDirectory = "freenet";
         ReadWritePaths = [cfg.dataDir];
+      };
+    };
+
+    systemd.services.freenet-update = mkIf cfg.autoUpdate.enable {
+      description = "Freenet Auto-Updater";
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
+
+      environment = {
+        HOME = cfg.dataDir;
+        FREENET_DATA_DIR = cfg.dataDir;
+        FREENET_SERVICE_NAME = "freenet.service";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        User = cfg.user;
+        Group = cfg.group;
+ExecStart = "${packages.freenet-update}/bin/freenet-update";
+        ReadWritePaths = [cfg.dataDir];
+};
+    };
+
+    systemd.timers.freenet-update = mkIf cfg.autoUpdate.enable {
+      description = "Freenet Update Timer";
+      wantedBy = ["timers.target"];
+
+      timerConfig = {
+        OnCalendar = cfg.autoUpdate.interval;
+        Persistent = true;
+        RandomizedDelaySec = "5min";
       };
     };
 
