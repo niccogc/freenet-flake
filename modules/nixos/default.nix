@@ -10,13 +10,19 @@ with lib; let
 
   # Wrap packages with environment variables
   wrappedFreenet = pkgs.writeShellScriptBin "freenet" ''
-    exec env FREENET_DATA_DIR="${cfg.dataDir}" CONFIG_DIR="${cfg.dataDir}" DATA_DIR="${cfg.dataDir}" LOG_DIR="${cfg.dataDir}" \
-      ${packages.freenet}/bin/freenet "$@"
+    FREENET_DATA_DIR="${cfg.dataDir}" \
+    CONFIG_DIR="${cfg.dataDir}" \
+    DATA_DIR="${cfg.dataDir}" \
+    LOG_DIR="${cfg.dataDir}" \
+    exec ${packages.freenet}/bin/freenet "$@"
   '';
 
   wrappedFdev = pkgs.writeShellScriptBin "fdev" ''
-    exec env FREENET_DATA_DIR="${cfg.dataDir}" CONFIG_DIR="${cfg.dataDir}" DATA_DIR="${cfg.dataDir}" LOG_DIR="${cfg.dataDir}" \
-      ${packages.fdev}/bin/fdev "$@"
+    FREENET_DATA_DIR="${cfg.dataDir}" \
+    CONFIG_DIR="${cfg.dataDir}" \
+    DATA_DIR="${cfg.dataDir}" \
+    LOG_DIR="${cfg.dataDir}" \
+    exec ${packages.fdev}/bin/fdev "$@"
   '';
 
   # Convert attrset to CLI flags: { fooBar = "value"; } -> ["--foo-bar" "value"]
