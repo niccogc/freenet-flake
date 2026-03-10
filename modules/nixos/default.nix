@@ -207,8 +207,8 @@ in {
         MemoryDenyWriteExecute = false;
 
         # Directories
-        StateDirectory = "freenet";
-        LogsDirectory = "freenet";
+        StateDirectory = cfg.dataDir;
+        LogsDirectory = cfg.logDir;
         ReadWritePaths = [cfg.dataDir];
       };
     };
