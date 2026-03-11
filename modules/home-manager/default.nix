@@ -159,6 +159,9 @@ in {
         Description = "Freenet Auto-Updater";
         After = ["network-online.target"];
         Wants = ["network-online.target"];
+        # Stop freenet while updating, restart after success
+        Conflicts = ["freenet.service"];
+        OnSuccess = ["freenet.service"];
       };
 
       Service = {

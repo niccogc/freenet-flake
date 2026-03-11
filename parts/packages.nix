@@ -131,18 +131,7 @@
 
         if [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ]; then
           echo "Update available: $LOCAL_VERSION -> $REMOTE_VERSION"
-
-          # Stop service before replacing binary (Text file busy)
-          echo "Stopping $FREENET_SERVICE_NAME..."
-          ${pkgs.systemd}/bin/systemctl stop "$FREENET_SERVICE_NAME" 2>/dev/null || \
-            ${pkgs.systemd}/bin/systemctl --user stop "$FREENET_SERVICE_NAME" 2>/dev/null || true
-
           fetch_version "$REMOTE_VERSION"
-
-          echo "Starting $FREENET_SERVICE_NAME..."
-          ${pkgs.systemd}/bin/systemctl start "$FREENET_SERVICE_NAME" 2>/dev/null || \
-            ${pkgs.systemd}/bin/systemctl --user start "$FREENET_SERVICE_NAME" 2>/dev/null || \
-            echo "Note: Could not start service. Manual start may be needed."
         else
           echo "Already at latest version: $LOCAL_VERSION"
         fi

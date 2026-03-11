@@ -220,9 +220,12 @@ in {
       after = ["network-online.target"];
       wants = ["network-online.target"];
 
+      # Stop freenet while updating, restart after success
+      conflicts = ["freenet.service"];
+      onSuccess = ["freenet.service"];
+
       # gzip is needed by tar for .tar.gz extraction
       path = [pkgs.gzip];
-
       environment = {
         HOME = cfg.dataDir;
         DATA_DIR = cfg.dataDir;
