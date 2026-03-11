@@ -62,13 +62,12 @@
       '';
 
     # Updater script: checks GitHub, updates if newer, restarts service
-    # Expects DATA_DIR and FREENET_SERVICE_NAME to be set
+    # Expects DATA_DIR to be set, FREENET_SERVICE_NAME optional (for service restart)
     mkUpdater = name:
       pkgs.writeShellScriptBin "${name}-update" ''
         set -euo pipefail
 
         : "''${DATA_DIR:?DATA_DIR must be set}"
-        : "''${FREENET_SERVICE_NAME:?FREENET_SERVICE_NAME must be set}"
         BINARY_PATH="$DATA_DIR/${name}"
         VERSION_FILE="$DATA_DIR/version"
         mkdir -p "$DATA_DIR"
@@ -115,10 +114,33 @@
           fi
 
           cp "$EXTRACTED" "$BINARY_PATH"
-          chmod +x "$BINARY_PATH"
           echo "$version" > "$VERSION_FILE"
+          # Set ownership if running as root with FREENET_USER set
+          if [ "$(id -u)" = "0" ] && [ -n "''${FREENET_USER:-}" ]; then
+            chown "''${FREENET_USER}:''${FREENET_GROUP:-$FREENET_USER}" "$BINARY_PATH" "$VERSION_FILE"
+          fi
+          chmod 700 "$BINARY_PATH"
+          chmod 600 "$VERSION_FILE"
           rm -rf "$TMP_DIR"
           echo "Updated to version $version"
+        }
+
+        stop_service() {
+          if [ -n "''${FREENET_SERVICE_NAME:-}" ]; then
+            echo "Stopping $FREENET_SERVICE_NAME..."
+            ${pkgs.systemd}/bin/systemctl stop "$FREENET_SERVICE_NAME" 2>/dev/null || \
+              ${pkgs.systemd}/bin/systemctl --user stop "$FREENET_SERVICE_NAME" 2>/dev/null || true
+            sleep 2
+          fi
+        }
+
+        start_service() {
+          if [ -n "''${FREENET_SERVICE_NAME:-}" ]; then
+            echo "Starting $FREENET_SERVICE_NAME..."
+            ${pkgs.systemd}/bin/systemctl start "$FREENET_SERVICE_NAME" 2>/dev/null || \
+              ${pkgs.systemd}/bin/systemctl --user start "$FREENET_SERVICE_NAME" 2>/dev/null || \
+              echo "Note: Could not start service. Manual start may be needed."
+          fi
         }
 
         REMOTE_VERSION=$(get_remote_version)
@@ -131,7 +153,9 @@
 
         if [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ]; then
           echo "Update available: $LOCAL_VERSION -> $REMOTE_VERSION"
+          stop_service
           fetch_version "$REMOTE_VERSION"
+          start_service
         else
           echo "Already at latest version: $LOCAL_VERSION"
         fi

@@ -163,15 +163,10 @@ in {
 
       Service = {
         Type = "oneshot";
-        # Stop freenet before update, restart after
-        ExecStartPre = [
-          "${pkgs.systemd}/bin/systemctl --user stop freenet.service"
-          "${pkgs.coreutils}/bin/sleep 10"
-        ];
         ExecStart = "${packages.freenet-update}/bin/freenet-update";
-        ExecStartPost = "${pkgs.systemd}/bin/systemctl --user start freenet.service";
         Environment = [
           "DATA_DIR=${cfg.dataDir}"
+          "FREENET_SERVICE_NAME=freenet.service"
         ];
       };
     };
