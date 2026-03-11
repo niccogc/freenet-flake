@@ -159,17 +159,19 @@ in {
         Description = "Freenet Auto-Updater";
         After = ["network-online.target"];
         Wants = ["network-online.target"];
-        # Stop freenet while updating, restart after success
-        Conflicts = ["freenet.service"];
-        OnSuccess = ["freenet.service"];
       };
 
       Service = {
         Type = "oneshot";
+        # Stop freenet before update, restart after
+        ExecStartPre = [
+          "${pkgs.systemd}/bin/systemctl --user stop freenet.service"
+          "${pkgs.coreutils}/bin/sleep 10"
+        ];
         ExecStart = "${packages.freenet-update}/bin/freenet-update";
+        ExecStartPost = "${pkgs.systemd}/bin/systemctl --user start freenet.service";
         Environment = [
           "DATA_DIR=${cfg.dataDir}"
-          "FREENET_SERVICE_NAME=freenet.service"
         ];
       };
     };

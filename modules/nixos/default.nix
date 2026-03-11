@@ -209,8 +209,6 @@ in {
         MemoryDenyWriteExecute = false;
 
         # Directories
-        StateDirectory = cfg.dataDir;
-        LogsDirectory = cfg.logDir;
         ReadWritePaths = [cfg.dataDir];
       };
     };
@@ -220,23 +218,25 @@ in {
       after = ["network-online.target"];
       wants = ["network-online.target"];
 
-      # Stop freenet while updating, restart after success
-      conflicts = ["freenet.service"];
-      onSuccess = ["freenet.service"];
-
       # gzip is needed by tar for .tar.gz extraction
       path = [pkgs.gzip];
+
       environment = {
         HOME = cfg.dataDir;
         DATA_DIR = cfg.dataDir;
-        FREENET_SERVICE_NAME = "freenet.service";
       };
 
       serviceConfig = {
         Type = "oneshot";
         User = cfg.user;
         Group = cfg.group;
+        # Stop freenet before update, restart after (+ runs as root)
+        ExecStartPre = [
+          "+${pkgs.systemd}/bin/systemctl stop freenet.service"
+          "${pkgs.coreutils}/bin/sleep 10"
+        ];
         ExecStart = "${packages.freenet-update}/bin/freenet-update";
+        ExecStartPost = "+${pkgs.systemd}/bin/systemctl start freenet.service";
         ReadWritePaths = [cfg.dataDir];
       };
     };
