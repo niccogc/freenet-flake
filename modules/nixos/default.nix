@@ -170,6 +170,8 @@ in {
       after = ["network-online.target"];
       wants = ["network-online.target"];
 
+      # gzip is needed by tar for .tar.gz extraction on first run
+      path = [pkgs.gzip];
       environment =
         {
           HOME = cfg.dataDir;
@@ -217,6 +219,9 @@ in {
       description = "Freenet Auto-Updater";
       after = ["network-online.target"];
       wants = ["network-online.target"];
+
+      # gzip is needed by tar for .tar.gz extraction
+      path = [pkgs.gzip];
 
       environment = {
         HOME = cfg.dataDir;
